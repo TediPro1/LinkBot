@@ -1,0 +1,25 @@
+**Terms of Use for LinkBot**
+
+Effective Date: [July 16, 2025]
+
+By using LinkBot (“the Bot”), you agree to the following terms:
+
+1. **Purpose**
+   LinkBot connects Minecraft Forge servers with Discord servers to enable in-game and Discord communication, account linking, and role management.
+
+2. **Acceptable Use**
+   - You must not use the Bot for abusive, illegal, or disruptive behavior.
+   - You may not reverse-engineer or attempt to interfere with the operation of the Bot.
+   - You must not impersonate other users or use the Bot for spam.
+
+3. **User Content**
+   Any messages or usernames processed by the Bot may be displayed publicly in Discord or Minecraft servers.
+
+4. **Termination**
+   We reserve the right to suspend or block access to the Bot at any time for violations of these terms.
+
+5. **Changes**
+   We may update these terms at any time. Continued use of the Bot means you accept the updated terms.
+
+6. **Contact**
+   For questions, contact the server admin or the developer of the bot.
