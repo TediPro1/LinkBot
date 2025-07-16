@@ -5,9 +5,9 @@ const fs = require('fs');
 const app = express();
 const PORT = 3000;
 
-const DISCORD_TOKEN = 'YOUR_BOT_TOKEN';
-const GUILD_ID = 'YOUR_GUILD_ID';
-const CHANNEL_ID = 'YOUR_MC_CHAT_CHANNEL_ID';
+const DISCORD_TOKEN = process.env.BOT_TOKEN;
+const GUILD_ID = process.env.GUILD_ID;
+const CHANNEL_ID = process.env.CHANNEL_ID;
 const LINKED_ROLE_NAME = '✅ Linked';
 const discordToMc = JSON.parse(fs.existsSync('linked_users.json') ? fs.readFileSync('linked_users.json') : '{}');
 
