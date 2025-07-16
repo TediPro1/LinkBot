@@ -22,8 +22,8 @@ jobs:
     - name: Build mod
       run: ./gradlew build
 
-    - name: Upload JAR
-      uses: actions/upload-artifact@v3
+    - name: Upload jar file
+      uses: actions/upload-artifact@v4
       with:
         name: mcdiscordbridge.jar
         path: build/libs/*.jar
