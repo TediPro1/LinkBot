@@ -1,0 +1,30 @@
+**Privacy Policy for LinkBot**
+
+Effective Date: [July 16, 2025]
+
+This policy explains how LinkBot (“the Bot”) collects and uses data when used in Discord or Minecraft.
+
+1. **Data Collected**
+   - **Discord user ID** when linking accounts or assigning roles
+   - **Minecraft usernames** when sending messages or joining the server
+   - **Chat messages** sent between Minecraft and Discord
+
+2. **How We Use the Data**
+   - To display Minecraft chat messages in Discord and vice versa
+   - To manage linked accounts for verified user communication
+   - To assign roles to users who join the Minecraft server
+
+3. **Data Storage**
+   - Data is stored locally in a `linked_users.json` file
+   - No data is shared with third parties
+   - Stored data includes only usernames and Discord IDs
+
+4. **User Control**
+   - Users may request unlinking by using the `/unlink` command or by contacting an admin
+   - No sensitive data (passwords, email, IPs) is collected
+
+5. **Your Rights**
+   - You may request deletion of your linked data by contacting the admin
+
+6. **Contact**
+   - For questions or deletion requests, please contact the bot administrator.
