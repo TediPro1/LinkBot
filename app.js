@@ -78,5 +78,8 @@ client.on('messageCreate', async msg => {
 
     // TODO: send to Minecraft via RCON or socket
 });
+app.get('/ping', (req, res) => {
+    res.sendStatus(200); // or res.send("pong");
+});
 
 client.login(DISCORD_TOKEN);
