@@ -36,8 +36,17 @@ function saveLinks() {
 }
 
 function loadLinks() {
-  if (fs.existsSync(LINKED_USERS_FILE)) {
-    linkedUsers = JSON.parse(fs.readFileSync(LINKED_USERS_FILE));
+  try {
+    if (fs.existsSync(LINKED_USERS_FILE)) {
+      const raw = fs.readFileSync(LINKED_USERS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+
+      // Safeguard against malformed structure
+      linkedUsers.mcToDiscord = parsed.mcToDiscord || {};
+      linkedUsers.discordToMc = parsed.discordToMc || {};
+    }
+  } catch (err) {
+    console.error('❌ Failed to load linked_users.json:', err);
   }
 }
 loadLinks();
