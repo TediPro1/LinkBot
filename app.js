@@ -6,7 +6,7 @@ const app = express();
 app.use(express.json());
 
 // ENV VARIABLES
-const TOKEN = process.env.DISCORD_TOKEN;
+const TOKEN = process.env.BOT_TOKEN;
 const GUILD_ID = process.env.GUILD_ID || 'YOUR_GUILD_ID';
 const LINKED_ROLE_ID = process.env.LINKED_ROLE_ID || 'YOUR_LINKED_ROLE_ID';
 const PLAYING_ROLE_ID = process.env.PLAYING_ROLE_ID || 'YOUR_PLAYING_ROLE_ID';
