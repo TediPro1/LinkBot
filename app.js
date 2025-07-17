@@ -1,102 +1,130 @@
 const express = require('express');
-const { Client, GatewayIntentBits } = require('discord.js');
-const bodyParser = require('body-parser');
 const fs = require('fs');
+const { Client, GatewayIntentBits, Partials } = require('discord.js');
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Railway requires this
+app.use(express.json());
 
-const DISCORD_TOKEN = process.env.BOT_TOKEN;
-const GUILD_ID = process.env.GUILD_ID;
-const CHANNEL_ID = process.env.CHANNEL_ID;
-const LINKED_ROLE_NAME = '✅ Linked';
-
-const discordToMc = JSON.parse(
-    fs.existsSync('linked_users.json') ? fs.readFileSync('linked_users.json') : '{}'
-);
-
-app.use(bodyParser.json());
-
-// Log all incoming requests for debugging
-app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-});
+// ENV VARIABLES
+const TOKEN = process.env.DISCORD_TOKEN;
+const GUILD_ID = process.env.GUILD_ID || 'YOUR_GUILD_ID';
+const LINKED_ROLE_ID = process.env.LINKED_ROLE_ID || 'YOUR_LINKED_ROLE_ID';
+const PLAYING_ROLE_ID = process.env.PLAYING_ROLE_ID || 'YOUR_PLAYING_ROLE_ID';
+const CHANNEL_ID = process.env.CHANNEL_ID || 'YOUR_CHANNEL_ID';
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-    ],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ],
+  partials: [Partials.GuildMember]
 });
 
-// Ready
-client.once('ready', () => {
-    console.log(`✅ Logged in as ${client.user.tag}`);
-    app.listen(PORT, () => console.log(`🚀 Webhook server running on port ${PORT}`));
+const LINKED_USERS_FILE = 'linked_users.json';
+let linkedUsers = {};
+
+function saveLinks() {
+  fs.writeFileSync(LINKED_USERS_FILE, JSON.stringify(linkedUsers, null, 2));
+}
+
+function loadLinks() {
+  if (fs.existsSync(LINKED_USERS_FILE)) {
+    linkedUsers = JSON.parse(fs.readFileSync(LINKED_USERS_FILE));
+  }
+}
+loadLinks();
+
+// 🔗 Link a Minecraft user to Discord
+app.post('/link-player', async (req, res) => {
+  const { mc_username, discord_id } = req.body;
+  if (!mc_username || !discord_id) {
+    return res.status(400).json({ error: 'Missing mc_username or discord_id' });
+  }
+
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID);
+    const member = await guild.members.fetch(discord_id);
+
+    await member.roles.add(LINKED_ROLE_ID);
+    linkedUsers[mc_username] = discord_id;
+    saveLinks();
+
+    console.log(`[LINK] ${mc_username} ⇄ ${discord_id}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('link-player error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ✅ Health check endpoint
-app.get('/ping', (req, res) => {
-    res.status(200).send('pong');
-});
-
-// Minecraft -> Discord chat
-app.post('/mc-chat', async (req, res) => {
-    const { username, message } = req.body;
-    try {
-        const channel = await client.channels.fetch(CHANNEL_ID);
-        channel.send(`<${username}> ${message}`);
-        res.sendStatus(200);
-    } catch (error) {
-        console.error('Failed to send mc-chat message:', error);
-        res.sendStatus(500);
-    }
-});
-
-// Player join: assign role and announce
+// 🎮 Player joins Minecraft
 app.post('/player-join', async (req, res) => {
-    const { mc_username, discord_id } = req.body;
-    try {
-        const guild = await client.guilds.fetch(GUILD_ID);
-        const member = await guild.members.fetch(discord_id);
+  const { mc_username, discord_id } = req.body;
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID);
+    const member = await guild.members.fetch(discord_id);
 
-        if (!discordToMc[discord_id]) {
-            discordToMc[discord_id] = mc_username;
-            fs.writeFileSync('linked_users.json', JSON.stringify(discordToMc, null, 2));
-        }
-
-        const role = guild.roles.cache.find(r => r.name === LINKED_ROLE_NAME);
-        if (role && !member.roles.cache.has(role.id)) {
-            await member.roles.add(role);
-        }
-
-        const channel = await client.channels.fetch(CHANNEL_ID);
-        channel.send(`🎮 <${mc_username}> joined the Minecraft server!`);
-
-        res.sendStatus(200);
-    } catch (err) {
-        console.error('player-join error:', err);
-        res.sendStatus(500);
-    }
-});
-
-// Discord -> Minecraft (RCON or socket TODO)
-client.on('messageCreate', async msg => {
-    if (msg.channel.id !== CHANNEL_ID || msg.author.bot) return;
-
-    const linkedMcUsername = discordToMc[msg.author.id];
-    if (!linkedMcUsername) {
-        msg.reply('❌ You haven’t linked your Minecraft account. Use `/link` in-game.');
-        return;
+    if (!linkedUsers[mc_username]) {
+      linkedUsers[mc_username] = discord_id;
+      saveLinks();
     }
 
-    const formatted = `<${linkedMcUsername}> ${msg.content}`;
-    console.log('Discord -> Minecraft:', formatted);
+    await member.roles.add(PLAYING_ROLE_ID);
 
-    // TODO: Send to Minecraft via RCON or WebSocket
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    await channel.send(`▶️ **${mc_username}** joined the Minecraft server!`);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('player-join error:', err);
+    res.sendStatus(500);
+  }
 });
 
-client.login(DISCORD_TOKEN);
+// ❌ Player leaves Minecraft
+app.post('/player-leave', async (req, res) => {
+  const { mc_username } = req.body;
+  const discord_id = linkedUsers[mc_username];
+  if (!discord_id) return res.sendStatus(404);
+
+  try {
+    const guild = await client.guilds.fetch(GUILD_ID);
+    const member = await guild.members.fetch(discord_id);
+
+    await member.roles.remove(PLAYING_ROLE_ID);
+
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    await channel.send(`⏹️ **${mc_username}** left the Minecraft server.`);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('player-leave error:', err);
+    res.sendStatus(500);
+  }
+});
+
+// 💬 Minecraft chat relay
+app.post('/mc-chat', async (req, res) => {
+  const { username, message } = req.body;
+  try {
+    const channel = await client.channels.fetch(CHANNEL_ID);
+    await channel.send(`<${username}> ${message}`);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('mc-chat error:', err);
+    res.sendStatus(500);
+  }
+});
+
+// ✅ Health check
+app.get('/ping', (req, res) => res.send('pong'));
+
+// 🟢 Start bot
+client.once('ready', () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+});
+
+client.login(TOKEN);
+app.listen(3000, () => console.log('🌐 Express server running on port 3000'));
