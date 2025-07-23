@@ -12,6 +12,7 @@ const LINKED_ROLE_ID = process.env.LINKED_ROLE_ID || 'YOUR_LINKED_ROLE_ID';
 const PLAYING_ROLE_ID = process.env.PLAYING_ROLE_ID || 'YOUR_PLAYING_ROLE_ID';
 const CHANNEL_ID = process.env.CHANNEL_ID || 'YOUR_CHANNEL_ID';
 const PORT = process.env.PORT || 3000;
+const MINECRAFT_ENDPOINT = process.env.MCPIPE;
 
 // DISCORD CLIENT
 const client = new Client({
