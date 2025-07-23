@@ -151,13 +151,31 @@ app.post('/mc-chat', async (req, res) => {
 });
 
 // 💬 Discord chat → Minecraft (bot should forward this to your Minecraft server via WebSocket or pipe)
-app.post('/discord-chat', async (req, res) => {
-  const { discord_id, message } = req.body;
-  let mcName = linkedUsers.discordToMc[discord_id] || 'UnknownUser';
+client.on('messageCreate', async (msg) => {
+  // Ignore bot messages
+  if (msg.author.bot) return;
 
-  // In actual use, this would be sent to Minecraft (e.g. via plugin or socket)
-  console.log(`<${mcName}> ${message}`);
-  res.sendStatus(200);
+  // Only handle messages in the specified channel
+  if (msg.channel.id !== DISCORD_CHANNEL_ID) return;
+
+  // Only forward messages from users with the linked role
+  if (!msg.member.roles.cache.has(LINKED_ROLE_ID)) return;
+
+  // Get linked MC name if available
+  const mcUsername = linkedUsers.discordToMc[msg.author.id] || msg.author.username;
+
+  // Payload to send to Minecraft
+  const payload = {
+    discord_id: msg.author.id,
+    message: `<${mcUsername}> ${msg.content}`
+  };
+
+  try {
+    await axios.post(MINECRAFT_ENDPOINT, payload);
+    console.log(`[Discord → Minecraft] ${payload.message}`);
+  } catch (err) {
+    console.error('❌ Failed to send message to Minecraft:', err.message);
+  }
 });
 
 // ✅ Health check
