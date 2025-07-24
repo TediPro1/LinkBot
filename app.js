@@ -53,33 +53,63 @@ function loadLinks() {
 }
 loadLinks();
 
-app.get('/linked_users.json', (req, res) => {
-  // loadLinks(); // Optionally refresh from file, though saveLinks() should keep it current
-  console.log('[REQUEST] Sending linked_users.json');
-  res.json(linkedUsers); // linkedUsers is your in-memory object { mcToDiscord: ..., discordToMc: ... }
-});
-
-// 🔗 Link a Minecraft user to Discord
 app.post('/link-player', async (req, res) => {
+  // Assuming req.body is now correctly populated with mc_username and discord_id
   const { mc_username, discord_id } = req.body;
+
   if (!mc_username || !discord_id) {
+    // This we are trying to fix with body parsing
     return res.status(400).json({ error: 'Missing mc_username or discord_id' });
   }
 
   try {
+    // 1. Fetch the Guild
+    console.log(`[LINK] Attempting to fetch guild: ${GUILD_ID}`);
     const guild = await client.guilds.fetch(GUILD_ID);
-    const member = await guild.members.fetch(discord_id);
+    if (!guild) {
+      console.error(`[LINK] Failed to fetch guild with ID: ${GUILD_ID}`);
+      return res.status(500).json({ error: 'Could not find configured guild on the bot.' });
+    }
+    console.log(`[LINK] Successfully fetched guild: ${guild.name}`);
 
-    await member.roles.add(LINKED_ROLE_ID);
+    // 2. Fetch the Member
+    console.log(`[LINK] Attempting to fetch member: ${discord_id} in guild ${guild.name}`);
+    const member = await guild.members.fetch(discord_id); // This can throw an error if user not in guild
+    if (!member) {
+      // This case might not be hit if guild.members.fetch throws for unknown member
+      console.error(`[LINK] Failed to fetch member with Discord ID: ${discord_id}`);
+      return res.status(404).json({ error: 'Discord user not found in the guild.' });
+    }
+    console.log(`[LINK] Successfully fetched member: ${member.user.tag}`);
+
+    // 3. Add the Role
+    console.log(`[LINK] Attempting to add role: ${LINKED_ROLE_ID} to member ${member.user.tag}`);
+    await member.roles.add(LINKED_ROLE_ID); // This can throw if role ID is invalid or bot lacks permissions
+    console.log(`[LINK] Successfully added role ${LINKED_ROLE_ID} to ${member.user.tag}`);
+
+    // 4. Update and Save Links
     linkedUsers.mcToDiscord[mc_username] = discord_id;
     linkedUsers.discordToMc[discord_id] = mc_username;
-    saveLinks();
+    saveLinks(); // Ensure this doesn't throw unhandled errors
 
     console.log(`[LINK] ${mc_username} ⇄ ${member.user.tag}`);
-    res.json({ success: true });
+    res.json({ success: true, message: `Linked ${mc_username} to ${member.user.tag} and assigned role.` });
+
   } catch (err) {
-    console.error('link-player error:', err);
-    res.status(500).json({ error: err.message });
+    console.error(`[LINK] Error in /link-player for MC: ${mc_username}, Discord ID: ${discord_id}:`, err);
+    // Specific error handling based on Discord.js error codes
+    if (err.code === 10013) { // Unknown User
+        return res.status(404).json({ error: `Discord user with ID ${discord_id} does not exist.` });
+    } else if (err.code === 10007) { // Unknown Member
+        return res.status(404).json({ error: `Discord user with ID ${discord_id} is not a member of the configured guild.` });
+    } else if (err.code === 50013) { // Missing Permissions
+        console.error(`[LINK] Missing permissions to add role ${LINKED_ROLE_ID}. Bot's highest role needs to be above this role, and bot needs 'Manage Roles' permission.`);
+        return res.status(500).json({ error: 'Bot lacks permissions to assign the role.' });
+    } else if (err.code === 50028 || err.message.includes('Invalid Form Body') && err.message.includes('roles')) { // Invalid Role
+        console.error(`[LINK] The role ID ${LINKED_ROLE_ID} is invalid or does not exist.`);
+        return res.status(500).json({ error: `The linked role ID (${LINKED_ROLE_ID}) is invalid.` });
+    }
+    res.status(500).json({ error: 'An internal error occurred while trying to link the player.', details: err.message });
   }
 });
 
