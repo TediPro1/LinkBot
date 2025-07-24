@@ -157,7 +157,7 @@ client.on('messageCreate', async (msg) => {
   if (msg.author.bot) return;
 
   // Only handle messages in the specified channel
-  if (msg.channel.id !== DISCORD_CHANNEL_ID) return;
+  if (msg.channel.id !== CHANNEL_ID) return;
 
   // Only forward messages from users with the linked role
   if (!msg.member.roles.cache.has(LINKED_ROLE_ID)) return;
