@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const axios = require('axios');
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
@@ -52,6 +53,37 @@ function loadLinks() {
   }
 }
 loadLinks();
+
+app.get('/linked_users.json', (req, res) => {
+  const filePath = path.join(__dirname, LINKED_USERS_FILE); // Assumes LINKED_USERS_FILE is in the same dir as this script
+
+  // Optional: Check if file exists, though if saveLinks() creates it, it should exist.
+  // fs.existsSync(filePath) can be used here.
+
+  // Check if file exists and is accessible
+  fs.access(filePath, fs.constants.F_OK, (err) => {
+    if (err) {
+      console.error(`[HTTP GET] File not found or not accessible: ${filePath}`, err);
+      return res.status(404).json({ error: 'Linked users file not found on server.' });
+    }
+
+    // Set content type to application/json
+    res.setHeader('Content-Type', 'application/json');
+
+    // Send the file
+    res.sendFile(filePath, (fileErr) => {
+      if (fileErr) {
+        console.error(`[HTTP GET] Error sending file ${filePath}:`, fileErr);
+        // Avoid sending another response if headers already sent
+        if (!res.headersSent) {
+          return res.status(500).json({ error: 'Failed to send linked users file.' });
+        }
+      } else {
+        console.log(`[HTTP GET] Sent ${LINKED_USERS_FILE} to a client.`);
+      }
+    });
+  });
+});
 
 app.post('/link-player', async (req, res) => {
   // Assuming req.body is now correctly populated with mc_username and discord_id
