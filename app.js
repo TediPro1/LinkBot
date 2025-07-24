@@ -79,50 +79,109 @@ app.post('/link-player', async (req, res) => {
 
 // 🎮 Player joins Minecraft
 app.post('/player-join', async (req, res) => {
-  const { mc_username, discord_id } = req.body;
+  const { mc_username } = req.body; // MODIFIED: Only expect mc_username from mod
+
+  if (!mc_username) {
+    console.log('[JOIN] Received /player-join without mc_username.');
+    return res.status(400).json({ error: 'Missing mc_username' });
+  }
+
+  console.log(`[JOIN] Received /player-join for MC User: ${mc_username}`);
+  let announcementMessage = `▶️ **${mc_username}** joined the server!`;
+  const discord_id = linkedUsers.mcToDiscord[mc_username]; // Try to find linked Discord ID
 
   try {
-    const guild = await client.guilds.fetch(GUILD_ID);
-    const member = await guild.members.fetch(discord_id);
+    const channel = await client.channels.fetch(CHANNEL_ID); // Fetch channel first
 
-    // Ensure user is linked
-    if (!linkedUsers.mcToDiscord[mc_username]) {
-      linkedUsers.mcToDiscord[mc_username] = discord_id;
-      linkedUsers.discordToMc[discord_id] = mc_username;
-      saveLinks();
+    if (discord_id) {
+      console.log(`[JOIN] ${mc_username} is linked to Discord ID: ${discord_id}. Attempting to manage roles and get display name.`);
+      try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(discord_id);
+
+        if (member) {
+          await member.roles.add(PLAYING_ROLE_ID);
+          console.log(`[JOIN] Added PLAYING_ROLE_ID to ${member.user.tag} (${mc_username})`);
+          // Update announcement message with Discord display name
+          announcementMessage = `▶️ **${member.displayName}** (*${mc_username}*) joined the server!`;
+        } else {
+          console.log(`[JOIN] Could not fetch member for Discord ID: ${discord_id} (linked to ${mc_username}). Role not assigned.`);
+        }
+      } catch (memberError) {
+        console.error(`[JOIN] Error managing roles or fetching member for ${mc_username} (Discord ID ${discord_id}):`, memberError.message);
+        // Continue to send a basic join message even if role assignment fails
+      }
+    } else {
+      console.log(`[JOIN] ${mc_username} is not linked to a Discord account. Sending generic join message.`);
     }
 
-    await member.roles.add(PLAYING_ROLE_ID);
+    // Send the announcement message (either generic or with Discord display name)
+    if (channel) {
+      await channel.send(announcementMessage);
+      console.log(`[JOIN] Sent join announcement for ${mc_username} to Discord.`);
+    } else {
+      console.error(`[JOIN] Channel with ID ${CHANNEL_ID} not found. Cannot send announcement.`);
+    }
 
-    const channel = await client.channels.fetch(CHANNEL_ID);
-    await channel.send(`▶️ **${member.displayName}** (*${mc_username}*) joined the Minecraft server!`);
-
-    res.sendStatus(200);
+    res.status(200).send('Join event processed.');
   } catch (err) {
-    console.error('player-join error:', err);
-    res.sendStatus(500);
+    console.error('[JOIN] Outer error processing player-join for ' + mc_username + ':', err.message);
+    res.status(500).send('Error processing join event.');
   }
 });
 
-// ❌ Player leaves Minecraft
+// ❌ Player leaves Minecraft - REMAINS LARGELY THE SAME (as it already primarily used mc_username)
 app.post('/player-leave', async (req, res) => {
   const { mc_username } = req.body;
-  const discord_id = linkedUsers.mcToDiscord[mc_username];
-  if (!discord_id) return res.sendStatus(404);
+  if (!mc_username) {
+    console.log('[LEAVE] Received /player-leave without mc_username.');
+    return res.status(400).json({ error: 'Missing mc_username' });
+  }
+
+  console.log(`[LEAVE] Received /player-leave for MC User: ${mc_username}`);
+  const discord_id = linkedUsers.mcToDiscord[mc_username]; // Try to find linked Discord ID
+
+  // Default announcement
+  let announcementMessage = `⏹️ **${mc_username}** left the server.`;
+
+  if (!discord_id) {
+    console.log(`[LEAVE] ${mc_username} is not linked. Sending generic leave message.`);
+    // Proceed to send the generic message
+  }
 
   try {
-    const guild = await client.guilds.fetch(GUILD_ID);
-    const member = await guild.members.fetch(discord_id);
+    const channel = await client.channels.fetch(CHANNEL_ID); // Fetch channel
 
-    await member.roles.remove(PLAYING_ROLE_ID);
+    if (discord_id) {
+      console.log(`[LEAVE] ${mc_username} is linked to Discord ID: ${discord_id}. Attempting to manage roles and get display name.`);
+      try {
+        const guild = await client.guilds.fetch(GUILD_ID);
+        const member = await guild.members.fetch(discord_id);
 
-    const channel = await client.channels.fetch(CHANNEL_ID);
-    await channel.send(`⏹️ **${member.displayName}** (*${mc_username}*) left the Minecraft server.`);
+        if (member) {
+          await member.roles.remove(PLAYING_ROLE_ID);
+          console.log(`[LEAVE] Removed PLAYING_ROLE_ID from ${member.user.tag} (${mc_username})`);
+          announcementMessage = `⏹️ **${member.displayName}** (*${mc_username}*) left the server.`;
+        } else {
+          console.log(`[LEAVE] Could not fetch member for Discord ID: ${discord_id} (linked to ${mc_username}). Role not removed (likely already gone or member left guild).`);
+        }
+      } catch (memberError) {
+        console.error(`[LEAVE] Error managing roles or fetching member for ${mc_username} (Discord ID ${discord_id}):`, memberError.message);
+        // Continue to send a leave message even if role removal fails
+      }
+    }
 
-    res.sendStatus(200);
+    // Send the announcement message
+    if (channel) {
+      await channel.send(announcementMessage);
+      console.log(`[LEAVE] Sent leave announcement for ${mc_username} to Discord.`);
+    } else {
+      console.error(`[LEAVE] Channel with ID ${CHANNEL_ID} not found. Cannot send announcement.`);
+    }
+    res.status(200).send('Leave event processed.');
   } catch (err) {
-    console.error('player-leave error:', err);
-    res.sendStatus(500);
+    console.error('[LEAVE] Outer error processing player-leave for ' + mc_username + ':', err.message);
+    res.status(500).send('Error processing leave event.');
   }
 });
 
