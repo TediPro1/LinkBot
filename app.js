@@ -53,6 +53,12 @@ function loadLinks() {
 }
 loadLinks();
 
+app.get('/linked_users.json', (req, res) => {
+  // loadLinks(); // Optionally refresh from file, though saveLinks() should keep it current
+  console.log('[REQUEST] Sending linked_users.json');
+  res.json(linkedUsers); // linkedUsers is your in-memory object { mcToDiscord: ..., discordToMc: ... }
+});
+
 // 🔗 Link a Minecraft user to Discord
 app.post('/link-player', async (req, res) => {
   const { mc_username, discord_id } = req.body;
